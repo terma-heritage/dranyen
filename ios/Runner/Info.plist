@@ -4,6 +4,8 @@
 	<dict>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Dramnyen Tuner listens through the microphone to detect the pitch of your strings.</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

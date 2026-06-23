@@ -44,8 +44,8 @@ jobs:
       - name: Build signed IPA
         run: flutter build ipa --release --build-number=${{ github.run_number }} --export-options-plist="$HOME/export_options.plist"
 
-      - name: Upload to TestFlight
-        run: app-store-connect publish --path "$(find "$(pwd)/build" -name '*.ipa' | head -1)" --testflight
+      - name: Upload to TestFlight (internal testing — no beta review)
+        run: app-store-connect publish --path "$(find "$(pwd)/build" -name '*.ipa' | head -1)"
 
       - name: Save IPA artifact
         if: always()
