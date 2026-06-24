@@ -29,7 +29,13 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     with SingleTickerProviderStateMixin {
   static const Map<String, double> _courseX = {'la': 0.47, 're': 0.66, 'so': 0.85};
   static const double _pairGap = 12;
-  static const List<double> _fretCents = [0, 200, 300]; // by fret level, for la & re
+  // Each course's note by fret level (0 open · 1 ti/mi · 2 do/fa). We play the
+  // dedicated recording for each — soundpool's playback-rate is unreliable on iOS.
+  static const Map<String, List<String>> _noteByLevel = {
+    'la': ['la', 'thi', 'do'],
+    're': ['re', 'mi', 'fa'],
+    'so': ['so', 'so', 'so'],
+  };
 
   Soundpool? _pool;
   final Map<String, int> _ids = {};            // open-sample id per course
@@ -65,8 +71,8 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     final pool = Soundpool.fromOptions(
       options: const SoundpoolOptions(streamType: StreamType.music, maxStreams: 8),
     );
-    for (final c in ['la', 're', 'so']) {
-      _ids[c] = await pool.load(await rootBundle.load('assets/audio/$c.mp3'));
+    for (final n in ['do', 're', 'mi', 'fa', 'so', 'la', 'thi']) {
+      _ids[n] = await pool.load(await rootBundle.load('assets/audio/$n.mp3'));
     }
     if (!mounted) {
       pool.dispose();
@@ -97,8 +103,7 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     }
   }
 
-  double _rate(String c) =>
-      c == 'so' ? 1.0 : math.pow(2, _fretCents[_fret] / 1200).toDouble();
+  String _noteFor(String c) => _noteByLevel[c]![_fret];
 
   Future<void> _pluck(String c, double strength, double py) async {
     final pool = _pool;
@@ -106,7 +111,7 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     final old = _stream[c];
     if (old != null) pool.stop(old);
     _excite(c, strength, py);
-    final sid = await pool.play(_ids[c]!, rate: _rate(c));
+    final sid = await pool.play(_ids[_noteFor(c)]!);
     _stream[c] = sid;
   }
 
@@ -121,15 +126,8 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     }
   }
 
-  void _applyFret(int level) {
-    setState(() => _fret = level);
-    final pool = _pool;
-    if (pool == null) return;
-    for (final c in ['la', 're']) {
-      final id = _stream[c];
-      if (id != null) pool.setRate(streamId: id, playbackRate: _rate(c));
-    }
-  }
+  // Holding a fret bar sets which note the next strum on La/Re will sound.
+  void _applyFret(int level) => setState(() => _fret = level);
 
   String _courseAtX(double dx, double w) {
     final f = dx / w;
