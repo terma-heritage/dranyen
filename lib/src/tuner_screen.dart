@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'arc_gauge.dart';
+import 'info_page.dart';
 import 'notes.dart';
 import 'tuner_controller.dart';
 import 'tuner_engine.dart';
@@ -48,7 +49,7 @@ class _TunerScreenState extends State<TunerScreen> {
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 20),
               child: Column(
                 children: [
-                  _topBar(),
+                  _topBar(context),
                   const Spacer(flex: 2),
                   _bigReadout(r, color),
                   const SizedBox(height: 6),
@@ -76,7 +77,7 @@ class _TunerScreenState extends State<TunerScreen> {
     );
   }
 
-  Widget _topBar() {
+  Widget _topBar(BuildContext context) {
     final locked = _c.locked;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -96,7 +97,15 @@ class _TunerScreenState extends State<TunerScreen> {
             ]),
           ),
         ),
-        const Text('A = 440 Hz', style: TextStyle(color: _muted, fontSize: 12)),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          const Text('A = 440 Hz', style: TextStyle(color: _muted, fontSize: 12)),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InfoPage())),
+            behavior: HitTestBehavior.opaque,
+            child: const Icon(Icons.info_outline, size: 19, color: _muted),
+          ),
+        ]),
       ],
     );
   }
@@ -104,14 +113,19 @@ class _TunerScreenState extends State<TunerScreen> {
   Widget _bigReadout(TunerReading? r, Color color) {
     return Column(
       children: [
-        Text(r?.note?.solfege ?? 'Tuner', style: const TextStyle(color: _muted, fontSize: 14, letterSpacing: 0.5)),
+        // Numbered-notation digit, small, on top.
+        SizedBox(
+          height: 20,
+          child: Text(r?.note?.number ?? '', style: const TextStyle(color: _muted, fontSize: 16, fontWeight: FontWeight.w500)),
+        ),
         const SizedBox(height: 2),
+        // Big solfège name is the hero, with the Western pitch beside it.
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(r?.note?.number ?? '—', style: TextStyle(color: color, fontSize: 86, fontWeight: FontWeight.w500, height: 1)),
+            Text(r?.note?.solfege ?? '—', style: TextStyle(color: color, fontSize: 72, fontWeight: FontWeight.w500, height: 1)),
             if (r?.note != null) ...[
               const SizedBox(width: 10),
               Text(r!.note!.pitch, style: const TextStyle(color: _idle, fontSize: 22)),
@@ -123,22 +137,20 @@ class _TunerScreenState extends State<TunerScreen> {
   }
 
   Widget _centsLine(TunerReading? r) {
-    final text = r == null
-        ? (_c.listening ? 'listening…' : '')
-        : '${r.freq.toStringAsFixed(1)} Hz   ·   ${r.cents >= 0 ? '+' : ''}${r.cents.toStringAsFixed(0)} cents';
+    final text = r == null ? (_c.listening ? 'listening…' : '') : '${r.freq.toStringAsFixed(1)} Hz';
     return SizedBox(height: 18, child: Text(text, style: const TextStyle(color: _muted, fontSize: 13)));
   }
 
   Widget _status(TunerReading? r, Color color) {
     String text;
     if (!_c.listening) {
-      text = 'Tap to start, then pluck a string';
+      text = 'Tap Start to begin';
     } else if (r == null) {
-      text = 'Pluck a string…';
+      text = 'Pluck a dramnyen string';
     } else if (_c.inTune) {
       text = '✓  In tune';
     } else {
-      text = r.cents < 0 ? 'Too low — tighten the peg' : 'Too high — loosen the peg';
+      text = r.cents < 0 ? 'Tighten a little' : 'Loosen a little';
     }
     return SizedBox(
       height: 20,
