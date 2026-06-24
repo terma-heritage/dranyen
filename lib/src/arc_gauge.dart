@@ -70,6 +70,22 @@ class _GaugePainter extends CustomPainter {
       canvas.drawArc(rect, a0, a1 - a0, false, paint);
     }
 
+    // Soft green bloom over the in-tune zone when locked.
+    if (inTune) {
+      final g0 = _angle(-5);
+      canvas.drawArc(
+        rect,
+        g0,
+        _angle(5) - g0,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = sw * 1.7
+          ..color = const Color(0xFF34D399)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+      );
+    }
+
     // Ticks at −50, 0, +50.
     final tickPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.28)
@@ -83,20 +99,31 @@ class _GaugePainter extends CustomPainter {
     _label(canvas, '♭', Offset(cx + (r + sw * 2.4) * math.cos(_angle(-50)), cy + (r + sw * 2.4) * math.sin(_angle(-50))));
     _label(canvas, '♯', Offset(cx + (r + sw * 2.4) * math.cos(_angle(50)), cy + (r + sw * 2.4) * math.sin(_angle(50))));
 
-    // Needle.
+    // Needle — a tapered pointer with a soft halo.
     final a = _angle(cents.clamp(-50.0, 50.0));
-    final tip = Offset(cx + (r - sw * 0.5) * math.cos(a), cy + (r - sw * 0.5) * math.sin(a));
     final needleColor = active ? color : const Color(0xFF4B5563);
-    canvas.drawLine(
-      Offset(cx, cy),
-      tip,
-      Paint()
-        ..color = needleColor
-        ..strokeWidth = math.max(3.0, size.width * 0.013)
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(Offset(cx, cy), size.width * 0.026, Paint()..color = needleColor);
-    canvas.drawCircle(Offset(cx, cy), size.width * 0.011, Paint()..color = const Color(0xFF0F1117));
+    final tipLen = r - sw * 0.5;
+    final tip = Offset(cx + tipLen * math.cos(a), cy + tipLen * math.sin(a));
+    final perp = a + math.pi / 2;
+    final halfBase = math.max(2.0, size.width * 0.011);
+    final b1 = Offset(cx + halfBase * math.cos(perp), cy + halfBase * math.sin(perp));
+    final b2 = Offset(cx - halfBase * math.cos(perp), cy - halfBase * math.sin(perp));
+    final needle = Path()
+      ..moveTo(b1.dx, b1.dy)
+      ..lineTo(tip.dx, tip.dy)
+      ..lineTo(b2.dx, b2.dy)
+      ..close();
+    if (active) {
+      canvas.drawPath(
+        needle,
+        Paint()
+          ..color = needleColor.withValues(alpha: inTune ? 0.6 : 0.3)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+    canvas.drawPath(needle, Paint()..color = needleColor);
+    canvas.drawCircle(Offset(cx, cy), size.width * 0.028, Paint()..color = needleColor);
+    canvas.drawCircle(Offset(cx, cy), size.width * 0.012, Paint()..color = const Color(0xFF12121A));
   }
 
   void _label(Canvas canvas, String text, Offset center) {

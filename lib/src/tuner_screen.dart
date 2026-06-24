@@ -28,10 +28,15 @@ class _TunerScreenState extends State<TunerScreen> {
     super.dispose();
   }
 
-  Color _stateColor(double? cents, bool hasReading, bool inTune) {
+  // Smoothly blend red → amber → green as the pitch approaches in-tune, so the
+  // needle and note glide through colour instead of snapping between states.
+  Color _toneColor(double? cents, bool hasReading) {
     if (!hasReading) return _idle;
-    if (inTune) return _green;
-    return cents!.abs() <= 15 ? _amber : _red;
+    final a = cents!.abs();
+    if (a <= 5) return _green;
+    if (a <= 18) return Color.lerp(_green, _amber, (a - 5) / 13)!;
+    if (a <= 35) return Color.lerp(_amber, _red, (a - 18) / 17)!;
+    return _red;
   }
 
   @override
@@ -44,14 +49,21 @@ class _TunerScreenState extends State<TunerScreen> {
           builder: (context, _) {
             final r = _c.reading;
             final has = r != null;
-            final color = _stateColor(r?.cents, has, _c.inTune);
-            return Padding(
+            final color = _toneColor(r?.cents, has);
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.5),
+                  radius: 1.2,
+                  colors: [Color(0xFF1B1B24), Color(0xFF0F1117)],
+                ),
+              ),
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 20),
               child: Column(
                 children: [
                   _topBar(context),
                   const Spacer(flex: 2),
-                  _bigReadout(r, color),
+                  _bigReadout(r, color, _c.inTune),
                   const SizedBox(height: 6),
                   _centsLine(r),
                   const SizedBox(height: 14),
@@ -110,29 +122,43 @@ class _TunerScreenState extends State<TunerScreen> {
     );
   }
 
-  Widget _bigReadout(TunerReading? r, Color color) {
-    return Column(
-      children: [
-        // Numbered-notation digit, small, on top.
-        SizedBox(
-          height: 20,
-          child: Text(r?.note?.number ?? '', style: const TextStyle(color: _muted, fontSize: 16, fontWeight: FontWeight.w500)),
-        ),
-        const SizedBox(height: 2),
-        // Big solfège name is the hero, with the Western pitch beside it.
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(r?.note?.solfege ?? '—', style: TextStyle(color: color, fontSize: 72, fontWeight: FontWeight.w500, height: 1)),
-            if (r?.note != null) ...[
-              const SizedBox(width: 10),
-              Text(r!.note!.pitch, style: const TextStyle(color: _idle, fontSize: 22)),
+  Widget _bigReadout(TunerReading? r, Color color, bool inTune) {
+    return AnimatedScale(
+      scale: inTune ? 1.05 : 1.0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      child: Column(
+        children: [
+          // Numbered-notation digit, small, on top.
+          SizedBox(
+            height: 20,
+            child: Text(r?.note?.number ?? '', style: const TextStyle(color: _muted, fontSize: 16, fontWeight: FontWeight.w500)),
+          ),
+          const SizedBox(height: 2),
+          // Big solfège name is the hero, with the Western pitch beside it.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                r?.note?.solfege ?? '—',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 72,
+                  fontWeight: FontWeight.w500,
+                  height: 1,
+                  shadows: inTune ? [Shadow(color: color.withValues(alpha: 0.55), blurRadius: 28)] : null,
+                ),
+              ),
+              if (r?.note != null) ...[
+                const SizedBox(width: 10),
+                Text(r!.note!.pitch, style: const TextStyle(color: _idle, fontSize: 22)),
+              ],
             ],
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
