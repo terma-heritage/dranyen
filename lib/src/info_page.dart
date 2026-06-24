@@ -46,6 +46,12 @@ class InfoPage extends StatelessWidget {
             _P('Dramnyen Tuner uses the D-major tuning at A = 440 Hz, confirmed with a master '
                 'player. So and La are re-entrant — they sound an octave below the other notes.'),
 
+            _H('Calibration'),
+            _P('Tap the “A = 440 Hz” chip to change the reference. Nudge concert pitch '
+                '(432 · 440 · 442 and anything between), or choose “Tune to your own La”: '
+                'pluck the La you like, capture it, and Re and So follow from that same '
+                'reference — the way the dramnyen is traditionally tuned by ear.'),
+
             _H('About the project'),
             _P('The Terma Heritage Foundation builds tools to preserve and share the living '
                 'traditions of Tibetan music. This is placeholder text and will be expanded — '

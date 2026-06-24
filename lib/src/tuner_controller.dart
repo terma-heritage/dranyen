@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,43 @@ class TunerController extends ChangeNotifier {
   bool inTune = false;
   bool _wasInTune = false;
 
+  /// Concert-pitch reference. 440 Hz is standard; "tune to your own La" and the
+  /// A= stepper both move this. Everything else scales from it.
+  double referenceA = 440.0;
+  static const double _defaultA = 440.0;
+  bool get calibrated => (referenceA - _defaultA).abs() > 0.05;
+
+  double get _scale => referenceA / _defaultA;
+
+  /// The pitch La sounds at under the current calibration (for display).
+  double get laHz => _laBaseHz * _scale;
+  static final double _laBaseHz = tuning.firstWhere((n) => n.solfege == 'La').hz;
+
+  void setReferenceA(double a) {
+    referenceA = a.clamp(415.0, 466.0);
+    _engine.tuningScale = _scale;
+    notifyListeners();
+  }
+
+  void resetCalibration() => setReferenceA(_defaultA);
+
+  /// Adopt whatever is being played right now as the La reference, folding it
+  /// into La's octave. Lets a player tune the rest of the dramnyen to a La they
+  /// already like (or that a group is playing) instead of strict A440.
+  bool captureLaFromCurrent() {
+    final f = reading?.freq;
+    if (f == null || f <= 0) return false;
+    var folded = f;
+    while (folded > _laBaseHz * math.sqrt2) {
+      folded /= 2;
+    }
+    while (folded < _laBaseHz / math.sqrt2) {
+      folded *= 2;
+    }
+    setReferenceA(_defaultA * (folded / _laBaseHz));
+    return true;
+  }
+
   Future<void> start() async {
     error = null;
     try {
@@ -48,7 +86,7 @@ class TunerController extends ChangeNotifier {
           autoGain: true, // boosts soft/distant playing — the sensitivity ask
         ),
       );
-      _engine = TunerEngine(sampleRate: sampleRate.toDouble());
+      _engine = TunerEngine(sampleRate: sampleRate.toDouble())..tuningScale = _scale;
       _buf.clear();
       _consumed = 0;
       listening = true;

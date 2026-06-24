@@ -92,5 +92,28 @@ void main() {
       final r = e.process(tone(110), 0.1, lockedTarget: la); // playing A2 (So)
       expect(r!.note!.solfege, 'La'); // forced to La target
     });
+
+    test('tuningScale shifts targets — scaled So reads ~0 cents', () {
+      final e = TunerEngine(sampleRate: sr)..tuningScale = 1.02; // A ≈ 448.8
+      TunerReading? r;
+      var t = 0.0;
+      for (var i = 0; i < 10; i++) {
+        t += 1 / 60;
+        r = e.process(tone(110 * 1.02), t); // a So sharpened to match the new reference
+      }
+      expect(r!.note!.solfege, 'So');
+      expect(r.cents.abs(), lessThan(5));
+    });
+
+    test('without calibration, that same sharp So reads sharp', () {
+      final e = TunerEngine(sampleRate: sr); // scale 1.0
+      TunerReading? r;
+      var t = 0.0;
+      for (var i = 0; i < 10; i++) {
+        t += 1 / 60;
+        r = e.process(tone(110 * 1.02), t);
+      }
+      expect(r!.cents, greaterThan(10)); // ~34 cents sharp at A440
+    });
   });
 }

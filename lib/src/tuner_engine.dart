@@ -34,6 +34,10 @@ class TunerEngine {
   final OneEuroFilter _freqFilter;
   double _level = 0;
 
+  /// Multiplies every target frequency. 1.0 = standard A440; calibration and
+  /// "tune to your own La" both move this single factor.
+  double tuningScale = 1.0;
+
   TunerEngine({
     required this.sampleRate,
     this.rmsFloor = 0.006,
@@ -69,7 +73,7 @@ class TunerEngine {
     final target = lockedTarget ?? _nearest(smoothed);
     return TunerReading(
       note: target,
-      cents: centsFromTarget(smoothed, target.hz),
+      cents: centsFromTarget(smoothed, target.hz * tuningScale),
       freq: smoothed,
       level: _level,
     );
@@ -79,7 +83,7 @@ class TunerEngine {
     DramnyenNote best = tuning.first;
     var bestAbs = double.infinity;
     for (final n in tuning) {
-      final c = centsFromTarget(freq, n.hz).abs();
+      final c = centsFromTarget(freq, n.hz * tuningScale).abs();
       if (c < bestAbs) {
         bestAbs = c;
         best = n;

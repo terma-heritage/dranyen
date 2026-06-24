@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'arc_gauge.dart';
+import 'calibration_sheet.dart';
 import 'info_page.dart';
 import 'notes.dart';
 import 'tuner_controller.dart';
@@ -110,7 +111,23 @@ class _TunerScreenState extends State<TunerScreen> {
           ),
         ),
         Row(mainAxisSize: MainAxisSize.min, children: [
-          const Text('A = 440 Hz', style: TextStyle(color: _muted, fontSize: 12)),
+          GestureDetector(
+            onTap: () => showCalibrationSheet(context, _c),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(999),
+                border: _c.calibrated ? Border.all(color: _amber.withValues(alpha: 0.5)) : null,
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.tune, size: 14, color: _c.calibrated ? _amber : _muted),
+                const SizedBox(width: 5),
+                Text('A = ${_c.referenceA.toStringAsFixed(_c.calibrated ? 1 : 0)} Hz',
+                    style: TextStyle(color: _c.calibrated ? _amber : _muted, fontSize: 12)),
+              ]),
+            ),
+          ),
           const SizedBox(width: 10),
           GestureDetector(
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InfoPage())),
