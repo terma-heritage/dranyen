@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'arc_gauge.dart';
 import 'calibration_sheet.dart';
+import 'dranyen_player.dart';
 import 'info_page.dart';
 import 'notes.dart';
 import 'tuner_controller.dart';
@@ -44,8 +45,10 @@ class _TunerScreenState extends State<TunerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      body: SafeArea(
-        child: AnimatedBuilder(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: AnimatedBuilder(
           animation: _c,
           builder: (context, _) {
             final r = _c.reading;
@@ -94,6 +97,28 @@ class _TunerScreenState extends State<TunerScreen> {
               ),
             );
           },
+            ),
+          ),
+          Positioned(right: 8, bottom: 6, child: _easterDot(context)),
+        ],
+      ),
+    );
+  }
+
+  // Quiet entry point to the in-progress dranyen player (easter egg).
+  Widget _easterDot(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const DranyenPlayerScreen())),
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        child: Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: _amber.withValues(alpha: 0.35), shape: BoxShape.circle),
         ),
       ),
     );
