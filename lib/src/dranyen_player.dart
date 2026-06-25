@@ -1,15 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:soundpool/soundpool.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 
 /// Hidden, in-progress playable dranyen. Reached from the easter-egg dot on the
 /// tuner screen. Three courses (La · Re · So); two fret bars lift La/Re to
 /// ti/mi (×200¢) and do/fa (×300¢); So is a fretless drone. Strum-required —
-/// fretting a ringing string bends its pitch live. Open samples are Tenzin
-/// Norbu's recordings; fretted notes are pitch-shifted from the open string,
-/// which is physically what fretting does.
+/// fretting a ringing string bends its pitch live (subtle glide). Open samples
+/// are Tenzin Norbu's recordings; fretted notes are pitch-shifted from the open
+/// string (physically what fretting does). Audio via flutter_soloud, whose
+/// playback speed pitch-shifts reliably on iOS (soundpool's rate did not).
 class DranyenPlayerScreen extends StatefulWidget {
   const DranyenPlayerScreen({super.key});
   @override
@@ -29,18 +29,15 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     with SingleTickerProviderStateMixin {
   static const Map<String, double> _courseX = {'la': 0.47, 're': 0.66, 'so': 0.85};
   static const double _pairGap = 12;
-  // Each course's note by fret level (0 open · 1 ti/mi · 2 do/fa). We play the
-  // dedicated recording for each — soundpool's playback-rate is unreliable on iOS.
-  static const Map<String, List<String>> _noteByLevel = {
-    'la': ['la', 'thi', 'do'],
-    're': ['re', 'mi', 'fa'],
-    'so': ['so', 'so', 'so'],
-  };
+  static const List<double> _fretCents = [0, 200, 300]; // by fret level, for la & re
+  static const double _bendTau = 0.035; // glide time constant — keep the bend subtle
 
-  Soundpool? _pool;
-  final Map<String, int> _ids = {};            // open-sample id per course
-  final Map<String, int?> _stream = {'la': null, 're': null, 'so': null};
-  int _fret = 0;                               // 0 open · 1 ti/mi · 2 do/fa
+  final SoLoud _soloud = SoLoud.instance;
+  final Map<String, AudioSource> _src = {};
+  final Map<String, SoundHandle?> _handle = {'la': null, 're': null, 'so': null};
+  final Map<String, double> _curSpeed = {'la': 1, 're': 1, 'so': 1};
+  final Map<String, double> _tgtSpeed = {'la': 1, 're': 1, 'so': 1};
+  int _fret = 0; // 0 open · 1 ti/mi · 2 do/fa
   bool _ready = false;
 
   late final AnimationController _ctrl;
@@ -68,26 +65,18 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
   }
 
   Future<void> _loadAudio() async {
-    final pool = Soundpool.fromOptions(
-      options: const SoundpoolOptions(streamType: StreamType.music, maxStreams: 8),
-    );
-    for (final n in ['do', 're', 'mi', 'fa', 'so', 'la', 'thi']) {
-      _ids[n] = await pool.load(await rootBundle.load('assets/audio/$n.mp3'));
+    if (!_soloud.isInitialized) await _soloud.init();
+    for (final c in ['la', 're', 'so']) {
+      _src[c] = await _soloud.loadAsset('assets/audio/$c.mp3');
     }
-    if (!mounted) {
-      pool.dispose();
-      return;
-    }
-    setState(() {
-      _pool = pool;
-      _ready = true;
-    });
+    if (!mounted) return;
+    setState(() => _ready = true);
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
-    _pool?.dispose();
+    if (_soloud.isInitialized) _soloud.deinit();
     super.dispose();
   }
 
@@ -101,18 +90,32 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
       str.t += dt;
       if (str.amp0 * math.exp(-str.t * 3.1) < 0.5) str.active = false;
     }
+    // subtle live pitch bend toward the held fret
+    for (final c in ['la', 're']) {
+      final h = _handle[c];
+      if (h == null || !_soloud.getIsValidVoiceHandle(h)) continue;
+      final cur = _curSpeed[c]!, tgt = _tgtSpeed[c]!;
+      if ((cur - tgt).abs() < 0.0004) continue;
+      final next = cur + (tgt - cur) * math.min(1.0, dt / _bendTau);
+      _curSpeed[c] = next;
+      _soloud.setRelativePlaySpeed(h, next);
+    }
   }
 
-  String _noteFor(String c) => _noteByLevel[c]![_fret];
+  double _speedFor(String c) =>
+      c == 'so' ? 1.0 : math.pow(2, _fretCents[_fret] / 1200).toDouble();
 
-  Future<void> _pluck(String c, double strength, double py) async {
-    final pool = _pool;
-    if (pool == null) return;
-    final old = _stream[c];
-    if (old != null) pool.stop(old);
+  void _pluck(String c, double strength, double py) {
+    if (!_ready) return;
+    final old = _handle[c];
+    if (old != null && _soloud.getIsValidVoiceHandle(old)) _soloud.stop(old);
     _excite(c, strength, py);
-    final sid = await pool.play(_ids[_noteFor(c)]!);
-    _stream[c] = sid;
+    final sp = _speedFor(c);
+    _curSpeed[c] = sp;
+    _tgtSpeed[c] = sp;
+    final h = _soloud.play(_src[c]!);
+    _soloud.setRelativePlaySpeed(h, sp);
+    _handle[c] = h;
   }
 
   void _excite(String c, double strength, double py) {
@@ -126,8 +129,13 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
     }
   }
 
-  // Holding a fret bar sets which note the next strum on La/Re will sound.
-  void _applyFret(int level) => setState(() => _fret = level);
+  // Holding a fret bar bends any ringing La/Re string and sets the next strum's note.
+  void _applyFret(int level) {
+    setState(() => _fret = level);
+    for (final c in ['la', 're']) {
+      _tgtSpeed[c] = _speedFor(c);
+    }
+  }
 
   String _courseAtX(double dx, double w) {
     final f = dx / w;
@@ -157,7 +165,6 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
           final zoneTop = h * 0.53;
           return Stack(
             children: [
-              // warm wood
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -168,18 +175,14 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
                   ),
                 ),
               ),
-              // vibrating strings
               Positioned.fill(
                 child: CustomPaint(painter: _StringsPainter(_strings, _pairGap, _ctrl)),
               ),
-              // fret bars
               _fretBar(w, h, 1, 'ti', 'mi', 0.21),
               _fretBar(w, h, 2, 'do', 'fa', 0.39),
-              // open labels
               _label(w, h, 'la', 0.47),
               _label(w, h, 're', 0.66),
               _label(w, h, 'so', 0.85),
-              // strum line + hint
               Positioned(
                 left: 14, right: 14, top: zoneTop,
                 child: SizedBox(height: 2, child: CustomPaint(painter: _DashedLine())),
@@ -189,7 +192,6 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
                 child: const Center(child: Text('strum below the line',
                     style: TextStyle(color: Color(0x8CFFF6E4), fontSize: 11))),
               ),
-              // strum zone
               Positioned(
                 left: 0, right: 0, top: zoneTop, bottom: 0,
                 child: Listener(
@@ -200,7 +202,6 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
                   onPointerCancel: (_) => _lastC = null,
                 ),
               ),
-              // back arrow
               Positioned(
                 top: MediaQuery.of(context).padding.top + 4, left: 4,
                 child: IconButton(
