@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:dramnyen_tuner/features/tuner/arc_gauge.dart';
 import 'package:dramnyen_tuner/features/tuner/calibration_sheet.dart';
+import 'package:dramnyen_tuner/features/learn/learn_screen.dart';
 import 'package:dramnyen_tuner/features/player/dranyen_player.dart';
 import 'package:dramnyen_tuner/features/tuner/info_page.dart';
 import 'package:dramnyen_tuner/shared/notes.dart';
@@ -163,6 +164,12 @@ class _TunerScreenState extends State<TunerScreen> {
             ),
           ),
           const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LearnScreen())),
+            behavior: HitTestBehavior.opaque,
+            child: const Icon(Icons.menu_book_outlined, size: 19, color: _muted),
+          ),
+          const SizedBox(width: 12),
           GestureDetector(
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InfoPage())),
             behavior: HitTestBehavior.opaque,
