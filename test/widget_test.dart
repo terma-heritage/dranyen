@@ -1,4 +1,4 @@
-import 'package:dramnyen_tuner/main.dart';
+import 'package:dramnyen_tuner/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,7 +7,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(const DramnyenTunerApp());
+    await tester.pumpWidget(const DranyenApp());
 
     expect(find.text('Start tuning'), findsOneWidget);
     expect(find.text('A = 440 Hz'), findsOneWidget);

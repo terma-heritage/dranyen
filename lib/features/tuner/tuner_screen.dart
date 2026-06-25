@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'arc_gauge.dart';
-import 'calibration_sheet.dart';
-import 'dranyen_player.dart';
-import 'info_page.dart';
-import 'notes.dart';
-import 'tuner_controller.dart';
-import 'tuner_engine.dart';
+import 'package:dramnyen_tuner/features/tuner/arc_gauge.dart';
+import 'package:dramnyen_tuner/features/tuner/calibration_sheet.dart';
+import 'package:dramnyen_tuner/features/player/dranyen_player.dart';
+import 'package:dramnyen_tuner/features/tuner/info_page.dart';
+import 'package:dramnyen_tuner/shared/notes.dart';
+import 'package:dramnyen_tuner/features/tuner/tuner_controller.dart';
+import 'package:dramnyen_tuner/features/tuner/tuner_engine.dart';
 
 const _bg = Color(0xFF0F1117);
 const _green = Color(0xFF34D399);
