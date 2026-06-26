@@ -72,23 +72,24 @@ class LearnArticlePage extends StatelessWidget {
             ],
           ),
         ),
+      // Flex columns + wrapping text, so the table always fits the screen
+      // width — never scrolls sideways, never overruns.
       Tbl(:final headers, :final rows) => Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowHeight: 40,
-              dataRowMinHeight: 38,
-              dataRowMaxHeight: 50,
-              columnSpacing: 22,
-              headingTextStyle: const TextStyle(color: _amber, fontSize: 13, fontWeight: FontWeight.w600),
-              dataTextStyle: const TextStyle(color: _body, fontSize: 13.5),
-              columns: [for (final h in headers) DataColumn(label: Text(h))],
-              rows: [
-                for (final r in rows)
-                  DataRow(cells: [for (final c in r) DataCell(Text(c))]),
-              ],
+          padding: const EdgeInsets.only(top: 6, bottom: 16),
+          child: Table(
+            columnWidths: {for (var i = 0; i < headers.length; i++) i: const FlexColumnWidth()},
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            border: TableBorder(
+              horizontalInside: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
             ),
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: _amber.withValues(alpha: 0.08)),
+                children: [for (final h in headers) _cell(h, header: true)],
+              ),
+              for (final r in rows)
+                TableRow(children: [for (final c in r) _cell(c)]),
+            ],
           ),
         ),
       Note(:final text) => Padding(
@@ -96,5 +97,20 @@ class LearnArticlePage extends StatelessWidget {
           child: Text(text, style: const TextStyle(color: _muted, fontSize: 12.5, height: 1.5)),
         ),
     };
+  }
+
+  Widget _cell(String text, {bool header = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: header ? _amber : _body,
+          fontSize: header ? 11.5 : 12,
+          height: 1.3,
+          fontWeight: header ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
+    );
   }
 }

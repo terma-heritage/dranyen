@@ -74,7 +74,7 @@ const List<Article> learnArticles = [
       Quote('White crane! Lend me your wings,\nI will not fly far —\nfrom Lithang, I shall return.', 'attributed to the Sixth Dalai Lama'),
       P('In the late 18th century the musician Doring Tenzin Paljor brought the hammered dulcimer and the erhu from China to accompany the dranyen, and introduced Chinese phuzi notation — opening an era of ensemble music.'),
       H('Rupture and survival after 1959'),
-      P('Following the occupation of Tibet, traditional genres were banned outright during the Cultural Revolution (1966–1976). In exile, the Tibetan Institute of Performing Arts (TIPA) — founded on 11 August 1959, based in Dharamsala under the patronage of the 14th Dalai Lama — became the heart of preservation, training hundreds of artists and music teachers and, in 1993, publishing the first songbook of Nangma-Toeshey with lyrics and notation.'),
+      P('Following the occupation of Tibet, traditional genres were banned outright during the Cultural Revolution (1966–1976). In exile, the Tibetan Institute of Performing Arts (TIPA) — founded on 11 August 1959, based in Dharamsala under the patronage of His Holiness the 14th Dalai Lama — became the heart of preservation, training hundreds of artists and music teachers and, in 1993, publishing the first songbook of Nangma-Toeshey with lyrics and notation.'),
       P('That lineage runs directly into this app: among TIPA\'s leading 21st-century performers is Tenzin Norbu ("Tenor"), who trained under master Gonpo Dorjee — the musician whose recordings give this app its sound.'),
       Note('Summarised from Tashi Tenzin, Dranyen: A Study in Tibetan Identity (Tibet Policy Institute), with Ian Collinge and Melvyn C. Goldstein. See Sources.'),
     ],

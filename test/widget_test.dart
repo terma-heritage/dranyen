@@ -9,6 +9,10 @@ void main() {
 
     await tester.pumpWidget(const DranyenApp());
 
+    // The app opens on the Foundation splash, which settles into the tuner.
+    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pump(const Duration(milliseconds: 600));
+
     expect(find.text('Start tuning'), findsOneWidget);
     expect(find.text('A = 440 Hz'), findsOneWidget);
     expect(find.text('Auto'), findsOneWidget);

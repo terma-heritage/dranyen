@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:dranyen/features/tuner/arc_gauge.dart';
 import 'package:dranyen/features/tuner/calibration_sheet.dart';
 import 'package:dranyen/features/learn/learn_screen.dart';
 import 'package:dranyen/features/player/dranyen_player.dart';
 import 'package:dranyen/features/tuner/info_page.dart';
+import 'package:dranyen/features/tuner/strobe_bar.dart';
 import 'package:dranyen/shared/notes.dart';
 import 'package:dranyen/features/tuner/tuner_controller.dart';
 import 'package:dranyen/features/tuner/tuner_engine.dart';
@@ -15,6 +19,8 @@ const _amber = Color(0xFFF0A93C);
 const _red = Color(0xFFEF4444);
 const _idle = Color(0xFF9AA0AB);
 const _muted = Color(0xFF7C828E);
+const _gold = Color(0xFFD4A853);
+const _ink = Color(0xFFE8EAED);
 
 class TunerScreen extends StatefulWidget {
   const TunerScreen({super.key});
@@ -22,11 +28,32 @@ class TunerScreen extends StatefulWidget {
   State<TunerScreen> createState() => _TunerScreenState();
 }
 
-class _TunerScreenState extends State<TunerScreen> {
+class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStateMixin {
   final TunerController _c = TunerController();
+  late final AnimationController _pulse;
+  bool _wasInTune = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _c.addListener(_onReading);
+  }
+
+  // Fire the lock-pulse ring + a firmer haptic the instant we land in tune.
+  void _onReading() {
+    final now = _c.inTune;
+    if (now && !_wasInTune) {
+      _pulse.forward(from: 0);
+      HapticFeedback.mediumImpact();
+    }
+    _wasInTune = now;
+  }
 
   @override
   void dispose() {
+    _c.removeListener(_onReading);
+    _pulse.dispose();
     _c.dispose();
     super.dispose();
   }
@@ -74,11 +101,16 @@ class _TunerScreenState extends State<TunerScreen> {
                     duration: const Duration(milliseconds: 450),
                     child: Column(
                       children: [
-                        _bigReadout(r, color, _c.inTune),
+                        _readoutWithPulse(r, color, _c.inTune),
                         const SizedBox(height: 6),
                         _centsLine(r),
                         const SizedBox(height: 14),
                         ArcGauge(cents: r?.cents ?? 0, color: color, active: has, inTune: _c.inTune),
+                        const SizedBox(height: 14),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 36),
+                          child: StrobeBar(cents: r?.cents ?? 0, active: has, inTune: _c.inTune, color: color),
+                        ),
                       ],
                     ),
                   ),
@@ -94,6 +126,7 @@ class _TunerScreenState extends State<TunerScreen> {
                     const SizedBox(height: 10),
                     Text(_c.error!, textAlign: TextAlign.center, style: const TextStyle(color: _red, fontSize: 12)),
                   ],
+                  _footer(),
                 ],
               ),
             );
@@ -180,6 +213,80 @@ class _TunerScreenState extends State<TunerScreen> {
     );
   }
 
+  // The hero readout with an expanding green ring that fires on lock.
+  Widget _readoutWithPulse(TunerReading? r, Color color, bool inTune) {
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        AnimatedBuilder(
+          animation: _pulse,
+          builder: (_, _) {
+            final t = _pulse.value;
+            if (t == 0.0 || t == 1.0) return const SizedBox.shrink();
+            return Opacity(
+              opacity: (1 - t) * 0.5,
+              child: Transform.scale(
+                scale: 0.6 + t * 0.9,
+                child: Container(
+                  width: 132,
+                  height: 132,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _green, width: 2),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        // Idle shows the brand lockup; tapping Start crossfades to the readout.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          child: _c.listening
+              ? KeyedSubtree(key: const ValueKey('readout'), child: _bigReadout(r, color, inTune))
+              : KeyedSubtree(key: const ValueKey('brand'), child: _brandLockup()),
+        ),
+      ],
+    );
+  }
+
+  // The cold-open brand mark, shown in the hero area before tuning starts.
+  Widget _brandLockup() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/branding/main-logo-gold.png',
+            width: 66, errorBuilder: (_, _, _) => const SizedBox(height: 66)),
+        const SizedBox(height: 16),
+        Text('Dranyen Tuner',
+            style: GoogleFonts.spaceGrotesk(color: _ink, fontSize: 30, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+        const SizedBox(height: 6),
+        Text('སྒྲ་སྙན་སྒྲ་སྒྲིག', style: const TextStyle(color: _gold, fontSize: 22, height: 1.4)),
+      ],
+    );
+  }
+
+  // Persistent, quiet Foundation credit at the foot of the screen.
+  Widget _footer() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Opacity(
+            opacity: 0.6,
+            child: Image.asset('assets/branding/main-logo-gold.png',
+                width: 13, errorBuilder: (_, _, _) => const SizedBox.shrink()),
+          ),
+          const SizedBox(width: 6),
+          Text('Terma Heritage Foundation',
+              style: GoogleFonts.spaceGrotesk(color: _muted, fontSize: 11, letterSpacing: 0.3)),
+        ],
+      ),
+    );
+  }
+
   Widget _bigReadout(TunerReading? r, Color color, bool inTune) {
     return AnimatedScale(
       scale: inTune ? 1.05 : 1.0,
@@ -190,7 +297,8 @@ class _TunerScreenState extends State<TunerScreen> {
           // Numbered-notation digit, small, on top.
           SizedBox(
             height: 20,
-            child: Text(r?.note?.number ?? '', style: const TextStyle(color: _muted, fontSize: 16, fontWeight: FontWeight.w500)),
+            child: Text(r?.note?.number ?? '',
+                style: GoogleFonts.spaceGrotesk(color: _muted, fontSize: 16, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(height: 2),
           // Big solfège name is the hero, with the Western pitch beside it.
@@ -201,17 +309,17 @@ class _TunerScreenState extends State<TunerScreen> {
             children: [
               Text(
                 r?.note?.solfege ?? '—',
-                style: TextStyle(
+                style: GoogleFonts.spaceGrotesk(
                   color: color,
-                  fontSize: 72,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 74,
+                  fontWeight: FontWeight.w600,
                   height: 1,
                   shadows: inTune ? [Shadow(color: color.withValues(alpha: 0.55), blurRadius: 28)] : null,
                 ),
               ),
               if (r?.note != null) ...[
                 const SizedBox(width: 10),
-                Text(r!.note!.pitch, style: const TextStyle(color: _idle, fontSize: 22)),
+                Text(r!.note!.pitch, style: GoogleFonts.spaceGrotesk(color: _idle, fontSize: 22)),
               ],
             ],
           ),
@@ -222,7 +330,10 @@ class _TunerScreenState extends State<TunerScreen> {
 
   Widget _centsLine(TunerReading? r) {
     final text = r == null ? (_c.listening ? 'listening…' : '') : '${r.freq.toStringAsFixed(1)} Hz';
-    return SizedBox(height: 18, child: Text(text, style: const TextStyle(color: _muted, fontSize: 13)));
+    return SizedBox(
+      height: 18,
+      child: Text(text, style: GoogleFonts.spaceMono(color: _muted, fontSize: 13, letterSpacing: 0.5)),
+    );
   }
 
   Widget _status(TunerReading? r, Color color) {
@@ -243,7 +354,8 @@ class _TunerScreenState extends State<TunerScreen> {
     final showColor = (r != null && (_c.inTune || _c.locked != null)) || !_c.listening;
     return SizedBox(
       height: 20,
-      child: Text(text, style: TextStyle(color: showColor ? color : _muted, fontSize: 15, fontWeight: FontWeight.w500)),
+      child: Text(text,
+          style: GoogleFonts.spaceGrotesk(color: showColor ? color : _muted, fontSize: 15, fontWeight: FontWeight.w500)),
     );
   }
 
@@ -257,19 +369,27 @@ class _TunerScreenState extends State<TunerScreen> {
         return Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: GestureDetector(
+            child: _Pressable(
               onTap: () => _c.setLocked(isLocked ? null : n),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
-                  color: highlight ? accent.withValues(alpha: 0.14) : Colors.white.withValues(alpha: 0.05),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: highlight
+                        ? [accent.withValues(alpha: 0.20), accent.withValues(alpha: 0.10)]
+                        : [Colors.white.withValues(alpha: 0.06), Colors.white.withValues(alpha: 0.03)],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: highlight ? accent : Colors.transparent, width: 1.5),
                 ),
                 child: Column(children: [
-                  Text(n.solfege, style: TextStyle(color: highlight ? accent : const Color(0xFFB6BAC2), fontSize: 14, fontWeight: FontWeight.w500)),
+                  Text(n.solfege,
+                      style: GoogleFonts.spaceGrotesk(
+                          color: highlight ? accent : const Color(0xFFB6BAC2), fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
-                  Text(n.pitch, style: const TextStyle(color: _muted, fontSize: 11)),
+                  Text(n.pitch, style: GoogleFonts.spaceMono(color: _muted, fontSize: 11)),
                 ]),
               ),
             ),
@@ -297,16 +417,65 @@ class _TunerScreenState extends State<TunerScreen> {
 
   Widget _micButton() {
     final on = _c.listening;
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: () => on ? _c.stop() : _c.start(),
-        style: FilledButton.styleFrom(
-          backgroundColor: on ? _red : _amber,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    final glow = on ? _red : _amber;
+    return _Pressable(
+      onTap: () => on ? _c.stop() : _c.start(),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: on
+                ? [const Color(0xFFF26464), const Color(0xFFD83B3B)]
+                : [const Color(0xFFF4B452), const Color(0xFFEC9A26)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: glow.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 6))],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
         ),
-        child: Text(on ? 'Stop' : 'Start tuning', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white)),
+        child: Center(
+          child: Text(
+            on ? 'Stop' : 'Start tuning',
+            style: GoogleFonts.spaceGrotesk(
+                fontSize: 16, fontWeight: FontWeight.w600, color: on ? Colors.white : const Color(0xFF3A2606)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A press wrapper: subtle scale-down on touch + a selection haptic on release.
+/// Gives the flat fills a hardware-button feel.
+class _Pressable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  const _Pressable({required this.child, required this.onTap});
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) {
+        setState(() => _down = false);
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _down ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: widget.child,
       ),
     );
   }

@@ -30,7 +30,7 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
   static const Map<String, double> _courseX = {'la': 0.47, 're': 0.66, 'so': 0.85};
   static const double _pairGap = 12;
   static const List<double> _fretCents = [0, 200, 300]; // by fret level, for la & re
-  static const double _bendTau = 0.035; // glide time constant — keep the bend subtle
+  static const double _bendTau = 0.005; // glide time constant — small = quick, subtle bend
 
   final SoLoud _soloud = SoLoud.instance;
   final Map<String, AudioSource> _src = {};
@@ -39,6 +39,7 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
   final Map<String, double> _tgtSpeed = {'la': 1, 're': 1, 'so': 1};
   int _fret = 0; // 0 open · 1 ti/mi · 2 do/fa
   bool _ready = false;
+  bool _audioOk = true;
 
   late final AnimationController _ctrl;
   final List<_Str> _strings = [];
@@ -65,9 +66,15 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
   }
 
   Future<void> _loadAudio() async {
-    if (!_soloud.isInitialized) await _soloud.init();
-    for (final c in ['la', 're', 'so']) {
-      _src[c] = await _soloud.loadAsset('assets/audio/$c.mp3');
+    try {
+      if (!_soloud.isInitialized) await _soloud.init();
+      for (final c in ['la', 're', 'so']) {
+        _src[c] = await _soloud.loadAsset('assets/audio/$c.mp3');
+      }
+    } catch (_) {
+      // Audio runtime unavailable (e.g. an unconfigured web build) — show the
+      // instrument anyway; the strings still respond visually, just silently.
+      _audioOk = false;
     }
     if (!mounted) return;
     setState(() => _ready = true);
@@ -107,9 +114,10 @@ class _DranyenPlayerScreenState extends State<DranyenPlayerScreen>
 
   void _pluck(String c, double strength, double py) {
     if (!_ready) return;
+    _excite(c, strength, py); // visual response first — works even without audio
+    if (!_audioOk || _src[c] == null) return;
     final old = _handle[c];
     if (old != null && _soloud.getIsValidVoiceHandle(old)) _soloud.stop(old);
-    _excite(c, strength, py);
     final sp = _speedFor(c);
     _curSpeed[c] = sp;
     _tgtSpeed[c] = sp;
